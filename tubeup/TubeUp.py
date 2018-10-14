@@ -388,8 +388,10 @@ class TubeUp(object):
         # Some video services don't tell you the uploader,
         # use our program's name in that case.
         try:
-            if 'uploader' in vid_meta:
+            if 'uploader' in vid_meta and vid_meta['uploader'] != '':
                 uploader = vid_meta['uploader']
+            elif 'uploader_url' in vid_meta and vid_meta['uploader_url'] != '':
+                uploader = vid_meta['uploader_url']
             else:
                 uploader = 'tubeup.py'
         except TypeError:  # apparently uploader is null as well
