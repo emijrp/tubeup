@@ -284,19 +284,15 @@ class TubeUp(object):
 
         # Delete empty description file
         description_file_path = videobasename + '.description'
-        if (os.path.exists(description_file_path) and
-            (('description' in vid_meta and
-             vid_meta['description'] == '') or
-                check_is_file_empty(description_file_path))):
-            os.remove(description_file_path)
+        if (vid_meta['description'] == '' or
+                check_is_file_empty(description_file_path)):
+            os.remove(videobasename + '.description')
 
         # Delete empty annotations.xml file so it isn't uploaded
-        annotations_file_path = videobasename + '.annotations.xml'
-        if (os.path.exists(annotations_file_path) and
-            (('annotations' in vid_meta and
+        if (('annotations' in vid_meta and
              vid_meta['annotations'] in {'', EMPTY_ANNOTATION_FILE}) or
-                check_is_file_empty(annotations_file_path))):
-            os.remove(annotations_file_path)
+                check_is_file_empty(description_file_path)):
+            os.remove(videobasename + '.annotations.xml')
 
         # Upload all files with videobase name: e.g. video.mp4,
         # video.info.json, video.srt, etc.
@@ -370,7 +366,35 @@ class TubeUp(object):
         if urlparse(url).netloc == 'soundcloud.com':
             return 'opensource_audio'
         return 'opensource_movies'
-
+    
+    @staticmethod
+    def determine_licenseurl(vid_meta):
+        """
+        Determine licenseurl for an url
+        
+        :param vid_meta:  
+        :return:          
+        """
+        licenseurl = ''
+        if 'license' in vid_meta and vid_meta['license']:
+            if vid_meta['extractor'].lower() == 'youtube':
+                if vid_meta['license'] == 'Creative Commons Attribution license (reuse allowed)':
+                    licenseurl = 'https://creativecommons.org/licenses/by/3.0/'
+            elif vid_meta['extractor'].lower() == 'flickr':
+                if vid_meta['license'] == 'Attribution-NonCommercial-ShareAlike':
+                    licenseurl = 'https://creativecommons.org/licenses/by-nc-sa/2.0/'
+                elif vid_meta['license'] == 'Attribution-NonCommercial':
+                    licenseurl = 'https://creativecommons.org/licenses/by-nc/2.0/'
+                elif vid_meta['license'] == 'Attribution-NonCommercial-NoDerivs':
+                    licenseurl = 'https://creativecommons.org/licenses/by-nc-nd/2.0/'
+                elif vid_meta['license'] == 'Attribution':
+                    licenseurl = 'https://creativecommons.org/licenses/by/2.0/'
+                elif vid_meta['license'] == 'Attribution-ShareAlike':
+                    licenseurl = 'https://creativecommons.org/licenses/by-sa/2.0/'
+                elif vid_meta['license'] == 'Attribution-NoDerivs':
+                    licenseurl = 'https://creativecommons.org/licenses/by-nd/2.0/'
+        return licenseurl
+    
     @staticmethod
     def create_archive_org_metadata_from_youtubedl_meta(vid_meta):
         """
@@ -388,8 +412,10 @@ class TubeUp(object):
         # Some video services don't tell you the uploader,
         # use our program's name in that case.
         try:
-            if 'uploader' in vid_meta:
+            if 'uploader' in vid_meta and vid_meta['uploader']:
                 uploader = vid_meta['uploader']
+            elif 'uploader_url' in vid_meta and vid_meta['uploader_url']:
+                uploader = vid_meta['uploader_url']
             else:
                 uploader = 'tubeup.py'
         except TypeError:  # apparently uploader is null as well
@@ -418,26 +444,29 @@ class TubeUp(object):
         if 'tags' in vid_meta:  # some video services don't have tags
             for tag in vid_meta['tags']:
                 tags_string += '%s;' % tag
-
+        
+        #license
+        licenseurl = TubeUp.determine_licenseurl(vid_meta)
+        
         # if there is no description don't upload the empty .description file
         description_text = vid_meta.get('description', '')
 
         description = ('{0} <br/><br/>Source: <a href="{1}">{2}</a>'
                        '<br/>Uploader: <a href="{3}">{4}</a>').format(
             description_text, videourl, videourl, uploader_url, uploader)
-
-        metadata = dict(
-            mediatype=('audio' if collection == 'opensource_audio'
+        
+        metadata = {
+            'mediatype': ('audio' if collection == 'opensource_audio'
                        else 'movies'),
-            creator=uploader,
-            collection=collection,
-            title=title,
-            description=description,
-            date=upload_date,
-            year=upload_year,
-            subject=tags_string,
-            originalurl=videourl,
-            licenseurl='')
-        # TODO: Maybe add a license determiner to determine the licenseurl
+            'creator': uploader,
+            'collection': collection,
+            'title': title,
+            'description': description,
+            'date': upload_date,
+            'year': upload_year,
+            'subject': tags_string,
+            'originalurl': videourl,
+            'licenseurl': licenseurl,
+        }
 
         return metadata
